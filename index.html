@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rupsaaj Watermark Studio</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip for bundling multiple files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Piexifjs for writing Offline SEO (EXIF) data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.js"></script>
+    <style>
+        .canvas-container {
+            background-color: #f5f5f5;
+            background-image: linear-gradient(45deg, #e5e5e5 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e5e5e5 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e5e5e5 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e5e5e5 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 0.375rem;
+            transition: all 0.3s ease;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .thumbnail-active { border-color: #3b82f6 !important; opacity: 1 !important; transform: scale(1.05); }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-100 p-4 md:p-8 font-sans text-neutral-800">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-neutral-200 gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="2" y="10" rx="2"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-neutral-900">Batch SEO Watermark Studio</h1>
+                    <p class="text-sm text-neutral-500">Auto JPG conversion, hidden tags, 5-star ratings & offline EXIF metadata</p>
+                </div>
+            </div>
+            <button id="downloadBtn" disabled class="w-full sm:w-auto flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm">
+                <svg id="downloadSpinner" class="hidden animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg id="downloadIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span id="downloadBtnText">Process & Download ZIP</span>
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column - Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- 1. Batch Image Upload -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-neutral-500 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            1. Select Photos
+                        </h2>
+                        <span id="imageCountBadge" class="hidden text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">0 images</span>
+                    </div>
+                    
+                    <div>
+                        <div id="uploadBox" class="border-2 border-dashed border-neutral-300 rounded-xl p-6 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all flex flex-col items-center justify-center space-y-3">
+                            <svg id="uploadIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-neutral-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                            <div class="space-y-1">
+                                <p id="uploadText" class="text-sm text-neutral-700 font-semibold">Click to upload photos</p>
+                                <p class="text-xs text-neutral-500">Converts all formats to 100% Quality JPG</p>
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/*" multiple class="hidden" />
+                    </div>
+
+                    <!-- Image Gallery Strip -->
+                    <div id="galleryContainer" class="hidden border-t border-neutral-100 pt-4 mt-4">
+                        <p class="text-xs text-neutral-500 font-medium mb-2">Uploaded Images (Click or swipe to preview)</p>
+                        <div id="thumbnailStrip" class="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 snap-x">
+                            <!-- Thumbnails injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Logo Setup -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-5">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-neutral-500 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                            2. Logo Layout
+                        </h2>
+                        <span id="logoStatus" class="hidden text-[10px] bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide">Loading...</span>
+                    </div>
+
+                    <!-- Error Message (Hidden by default) -->
+                    <div id="logoError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start space-x-3 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                        <div>
+                            <p><strong>Missing Logo File</strong></p>
+                            <p class="text-xs mt-0.5 opacity-90">Please upload a valid PNG logo file.</p>
+                        </div>
+                    </div>
+
+                    <!-- Position Grid -->
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-700 mb-2">Watermark Position</label>
+                        <div class="grid grid-cols-2 gap-2 max-w-full" id="positionGrid">
+                            <button data-pos="top-left" class="pos-btn py-2 border border-neutral-200 rounded-xl flex items-center justify-center transition-all hover:bg-neutral-50 text-neutral-500">
+                                <span class="text-xs font-medium pointer-events-none">Top Left</span>
+                            </button>
+                            <button data-pos="top-right" class="pos-btn py-2 border border-neutral-200 rounded-xl flex items-center justify-center transition-all hover:bg-neutral-50 text-neutral-500">
+                                <span class="text-xs font-medium pointer-events-none">Top Right</span>
+                            </button>
+                            <button data-pos="bottom-left" class="pos-btn py-2 border border-neutral-200 rounded-xl flex items-center justify-center transition-all hover:bg-neutral-50 text-neutral-500">
+                                <span class="text-xs font-medium pointer-events-none">Bottom Left</span>
+                            </button>
+                            <button data-pos="bottom-right" class="pos-btn py-2 border border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600 shadow-sm rounded-xl flex items-center justify-center transition-all">
+                                <span class="text-xs font-medium pointer-events-none">Bottom Right</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 pt-2">
+                        <div>
+                            <div class="flex justify-between mb-1.5">
+                                <label class="text-sm font-medium text-neutral-700">Watermark Size</label>
+                                <span id="scaleValue" class="text-xs text-neutral-500 font-medium">20%</span>
+                            </div>
+                            <input type="range" id="logoScale" min="5" max="50" value="20" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1.5">
+                                <label class="text-sm font-medium text-neutral-700">Watermark Opacity</label>
+                                <span id="opacityValue" class="text-xs text-neutral-500 font-medium">100%</span>
+                            </div>
+                            <input type="range" id="logoOpacity" min="10" max="100" value="100" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Offline Image SEO -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4 border-l-4 border-l-purple-500">
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-neutral-500 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-purple-600"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
+                            3. Offline Image SEO
+                        </h2>
+                        <div class="flex items-center space-x-2 mt-2 bg-yellow-50 text-yellow-700 p-2 rounded-lg text-[11px]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            <span>Automatically applies a 5-star rating to all exports.</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 pt-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Image Title -->
+                            <div>
+                                <label class="block text-sm font-medium text-neutral-700 mb-1.5">Base Title</label>
+                                <input type="text" id="imageTitle" placeholder="e.g. Summer Collection" class="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all">
+                            </div>
+
+                            <!-- SKU -->
+                            <div>
+                                <label class="block text-sm font-medium text-neutral-700 mb-1.5">SKU</label>
+                                <input type="text" id="imageSku" placeholder="e.g. RSJ-1024" class="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all">
+                            </div>
+                        </div>
+
+                        <!-- Copyright -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1.5">Copyright</label>
+                            <input type="text" id="imageCopyright" value="www.rupsaaj.com" class="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all">
+                        </div>
+
+                        <!-- Tags -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1.5">Custom SEO Tags <span class="text-neutral-400 font-normal">(Optional)</span></label>
+                            <input type="text" id="imageTags" placeholder="e.g. red, party wear" class="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all">
+                            <p class="text-[10px] text-neutral-400 mt-1.5">Default Rupsaaj tags will automatically be appended behind your custom tags in Windows/Mac properties.</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-neutral-100">
+                        <label class="flex items-center space-x-3 cursor-pointer group">
+                            <div class="relative flex items-center">
+                                <input type="checkbox" id="showText" class="w-4 h-4 text-purple-600 rounded border-neutral-300 focus:ring-purple-500 cursor-pointer">
+                            </div>
+                            <span class="text-sm font-medium text-neutral-700 group-hover:text-neutral-900 transition-colors">
+                                Also stamp metadata visibly on images
+                            </span>
+                        </label>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right Column - Preview Area -->
+            <div class="lg:col-span-8">
+                <div class="bg-white p-2 rounded-2xl shadow-sm border border-neutral-200 min-h-[500px] h-full flex flex-col relative overflow-hidden">
+                    
+                    <!-- Preview Header -->
+                    <div class="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
+                        <div class="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg border border-white/20 text-xs font-semibold text-neutral-700 shadow-sm flex items-center">
+                            <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                            Live Preview <span id="previewCount" class="ml-1 text-neutral-400 font-normal"></span>
+                        </div>
+                    </div>
+
+                    <!-- Swipeable Canvas Container -->
+                    <div id="previewContainer" class="canvas-container flex-1 w-full h-full rounded-xl flex items-center justify-center p-4 overflow-hidden border-2 border-dashed border-neutral-100 relative select-none cursor-grab active:cursor-grabbing group">
+                        
+                        <!-- Navigation Arrows -->
+                        <button id="prevBtn" class="hidden absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-3 rounded-full z-20 backdrop-blur transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button id="nextBtn" class="hidden absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-3 rounded-full z-20 backdrop-blur transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+
+                        <!-- Placeholder State -->
+                        <div id="placeholder" class="text-center text-neutral-400 flex flex-col items-center pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4 opacity-40"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            <p class="font-medium text-neutral-600">Waiting for images...</p>
+                            <p class="text-sm mt-1 max-w-xs">Upload photos to preview and apply SEO settings.</p>
+                        </div>
+
+                        <!-- Main Canvas for Preview -->
+                        <canvas id="mainCanvas" class="hidden pointer-events-none"></canvas>
+                    </div>
+                    <div id="swipeHint" class="hidden text-center text-[10px] text-neutral-400 mt-2 uppercase tracking-widest font-semibold">
+                        &larr; Swipe or drag to navigate &rarr;
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Hidden Offscreen Canvas for full-res processing -->
+    <canvas id="offscreenCanvas" style="display:none;"></canvas>
+
+    <!-- Source Logo Image Tag (Change the src attribute here to update your logo) -->
+    <img id="sourceLogo" src="./logo.png" crossorigin="anonymous" style="display:none;" alt="Watermark Logo" />
+
+    <script>
+        // ==========================================
+        // 🔧 CONFIGURATION
+        // ==========================================
+        // Default SEO Tags mapped exactly as requested
+        const DEFAULT_TAGS = [
+            "rupsaaj", "fashion", "dress for women", "dress collection", 
+            "saree", "Pakistani dress", "three piece", "hijab", "Borkha", 
+            "Abaya", "Jewellery", "ring", "earrings", "watch", "ladies", 
+            "ladies watch", "cream", "makeup", "cosmetics"
+        ].join(", ");
+
+        // EXIF Constants for Windows Image Properties
+        const EXIF_XP_TITLE = 40091; // 0x9C9B
+        const EXIF_XP_COMMENT = 40092; // 0x9C9C
+        const EXIF_XP_AUTHOR = 40093; // 0x9C9D
+        const EXIF_XP_KEYWORDS = 40094; // 0x9C9E
+        const EXIF_XP_SUBJECT = 40095; // 0x9C9F
+        const EXIF_RATING = 18246; // 0x4746
+        const EXIF_RATING_PERCENT = 18249; // 0x4749
+
+        // State Variables
+        let uploadedImages = []; 
+        let selectedIndex = 0;
+        let logoImage = null;
+        let position = 'bottom-right';
+        
+        // DOM Elements
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const offscreenCanvas = document.getElementById('offscreenCanvas');
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+        
+        const previewContainer = document.getElementById('previewContainer');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const swipeHint = document.getElementById('swipeHint');
+        const placeholder = document.getElementById('placeholder');
+        
+        const fileInput = document.getElementById('fileInput');
+        const uploadBox = document.getElementById('uploadBox');
+        
+        const thumbnailStrip = document.getElementById('thumbnailStrip');
+        const galleryContainer = document.getElementById('galleryContainer');
+        const imageCountBadge = document.getElementById('imageCountBadge');
+        const previewCount = document.getElementById('previewCount');
+        
+        const posButtons = document.querySelectorAll('.pos-btn');
+        const scaleInput = document.getElementById('logoScale');
+        const opacityInput = document.getElementById('logoOpacity');
+        
+        const titleInput = document.getElementById('imageTitle');
+        const skuInput = document.getElementById('imageSku');
+        const copyrightInput = document.getElementById('imageCopyright');
+        const tagsInput = document.getElementById('imageTags');
+        const showTextCheckbox = document.getElementById('showText');
+        
+        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadBtnText = document.getElementById('downloadBtnText');
+        const downloadSpinner = document.getElementById('downloadSpinner');
+        const downloadIcon = document.getElementById('downloadIcon');
+        
+        const logoStatus = document.getElementById('logoStatus');
+        const logoError = document.getElementById('logoError');
+        const sourceLogo = document.getElementById('sourceLogo');
+
+        // Helper to combine User Tags + Default Tags
+        function getCombinedTags() {
+            const userTags = tagsInput.value.trim();
+            return userTags ? `${userTags}, ${DEFAULT_TAGS}` : DEFAULT_TAGS;
+        }
+
+        // Helper: Convert string to Windows XP UTF-16LE Byte Array format for EXIF
+        function toUTF16LE(str) {
+            const arr = [];
+            for (let i = 0; i < str.length; i++) {
+                const code = str.charCodeAt(i);
+                arr.push(code & 0xff);
+                arr.push((code >> 8) & 0xff);
+            }
+            arr.push(0); // Null terminator
+            arr.push(0);
+            return arr;
+        }
+
+        // 1. Initialize Logo strictly from the HTML img tag
+        function loadLogo() {
+            const handleLoad = () => {
+                logoImage = sourceLogo;
+                logoStatus.textContent = "Logo Active";
+                logoStatus.className = "text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide";
+                logoError.classList.add('hidden');
+                drawPreview(); 
+            };
+
+            const handleError = () => {
+                logoImage = null;
+                logoStatus.textContent = "Missing Logo";
+                logoStatus.className = "text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide";
+                logoError.classList.remove('hidden');
+                drawPreview();
+            };
+
+            // Check if the image has already loaded by the time the script runs
+            if (sourceLogo.complete) {
+                if (sourceLogo.naturalWidth > 0) {
+                    handleLoad();
+                } else {
+                    handleError();
+                }
+            } else {
+                // Otherwise wait for the load/error events
+                sourceLogo.onload = handleLoad;
+                sourceLogo.onerror = handleError;
+            }
+        }
+
+        // 2. Handle Multi-Image Upload
+        uploadBox.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            uploadBox.style.opacity = '0.5';
+
+            for (let file of files) {
+                if (!file.type.startsWith('image/')) continue;
+                const img = await loadImageFile(file);
+                uploadedImages.push({
+                    file: file,
+                    imgObj: img,
+                    name: file.name
+                });
+            }
+
+            uploadBox.style.opacity = '1';
+            
+            if (uploadedImages.length > 0) {
+                placeholder.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                galleryContainer.classList.remove('hidden');
+                downloadBtn.disabled = false;
+                
+                imageCountBadge.classList.remove('hidden');
+                imageCountBadge.textContent = `${uploadedImages.length} image${uploadedImages.length > 1 ? 's' : ''}`;
+                
+                renderThumbnails();
+                selectImage(uploadedImages.length - files.length); 
+                updateNavigationUI();
+            }
+        });
+
+        function loadImageFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 3. Navigation & Thumbnails
+        function renderThumbnails() {
+            thumbnailStrip.innerHTML = '';
+            uploadedImages.forEach((item, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = `flex-shrink-0 w-16 h-16 rounded-lg border-2 border-transparent overflow-hidden cursor-pointer snap-center opacity-60 transition-all ${index === selectedIndex ? 'thumbnail-active shadow-md' : 'hover:opacity-100'}`;
+                thumb.onclick = () => selectImage(index);
+                
+                const img = document.createElement('img');
+                img.src = item.imgObj.src;
+                img.className = 'w-full h-full object-cover';
+                
+                thumb.appendChild(img);
+                thumbnailStrip.appendChild(thumb);
+            });
+            
+            if(thumbnailStrip.children[selectedIndex]) {
+                thumbnailStrip.children[selectedIndex].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+
+        function selectImage(index) {
+            if (index < 0 || index >= uploadedImages.length) return;
+            selectedIndex = index;
+            previewCount.textContent = `(${index + 1}/${uploadedImages.length})`;
+            renderThumbnails();
+            drawPreview();
+        }
+
+        function updateNavigationUI() {
+            if (uploadedImages.length > 1) {
+                prevBtn.classList.remove('hidden');
+                nextBtn.classList.remove('hidden');
+                swipeHint.classList.remove('hidden');
+            } else {
+                prevBtn.classList.add('hidden');
+                nextBtn.classList.add('hidden');
+                swipeHint.classList.add('hidden');
+            }
+        }
+
+        // Navigation Bindings
+        prevBtn.addEventListener('click', (e) => { e.stopPropagation(); selectImage((selectedIndex - 1 + uploadedImages.length) % uploadedImages.length); });
+        nextBtn.addEventListener('click', (e) => { e.stopPropagation(); selectImage((selectedIndex + 1) % uploadedImages.length); });
+
+        // Swipe / Drag Bindings
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const swipeThreshold = 50; 
+
+        previewContainer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+        previewContainer.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        let isDragging = false;
+        previewContainer.addEventListener('mousedown', e => { 
+            isDragging = true;
+            touchStartX = e.screenX; 
+        });
+        window.addEventListener('mouseup', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            touchEndX = e.screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            if (uploadedImages.length <= 1) return;
+            if (touchEndX < touchStartX - swipeThreshold) selectImage((selectedIndex + 1) % uploadedImages.length);
+            if (touchEndX > touchStartX + swipeThreshold) selectImage((selectedIndex - 1 + uploadedImages.length) % uploadedImages.length);
+        }
+
+        // 4. Config Bindings
+        posButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                posButtons.forEach(b => {
+                    b.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-700', 'ring-1', 'ring-blue-600', 'shadow-sm');
+                    b.classList.add('border-neutral-200', 'hover:bg-neutral-50', 'text-neutral-500');
+                });
+                const target = e.currentTarget;
+                target.classList.remove('border-neutral-200', 'hover:bg-neutral-50', 'text-neutral-500');
+                target.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-700', 'ring-1', 'ring-blue-600', 'shadow-sm');
+                position = target.getAttribute('data-pos');
+                drawPreview();
+            });
+        });
+
+        scaleInput.addEventListener('input', (e) => { scaleValue.textContent = `${e.target.value}%`; drawPreview(); });
+        opacityInput.addEventListener('input', (e) => { opacityValue.textContent = `${e.target.value}%`; drawPreview(); });
+        titleInput.addEventListener('input', drawPreview);
+        skuInput.addEventListener('input', drawPreview);
+        copyrightInput.addEventListener('input', drawPreview);
+        tagsInput.addEventListener('input', drawPreview);
+        showTextCheckbox.addEventListener('change', drawPreview);
+
+        // 5. Shared Canvas Drawing Logic
+        function drawToCanvasContext(targetCanvas, targetCtx, baseImgObj) {
+            // Keep exactly the original dimensions
+            targetCanvas.width = baseImgObj.width;
+            targetCanvas.height = baseImgObj.height;
+
+            // ALWAYS fill with white to prevent transparent PNGs from turning black when exported as JPG
+            targetCtx.fillStyle = '#ffffff';
+            targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+
+            // Draw Base Image
+            targetCtx.drawImage(baseImgObj, 0, 0);
+
+            const scale = parseInt(scaleInput.value);
+            const opacity = parseInt(opacityInput.value);
+            const padding = targetCanvas.width * 0.02;
+
+            // Draw Watermark ONLY if logo is loaded
+            if (logoImage) {
+                const targetWidth = targetCanvas.width * (scale / 100);
+                const ratio = logoImage.width / logoImage.height;
+                const targetHeight = targetWidth / ratio;
+                
+                let x = 0, y = 0;
+                if (position === 'top-left') { x = padding; y = padding; }
+                else if (position === 'top-right') { x = targetCanvas.width - targetWidth - padding; y = padding; }
+                else if (position === 'bottom-left') { x = padding; y = targetCanvas.height - targetHeight - padding; }
+                else if (position === 'bottom-right') { x = targetCanvas.width - targetWidth - padding; y = targetCanvas.height - targetHeight - padding; }
+
+                targetCtx.globalAlpha = opacity / 100;
+                targetCtx.drawImage(logoImage, x, y, targetWidth, targetHeight);
+                targetCtx.globalAlpha = 1.0;
+            }
+
+            // Draw Visible Text Bar (If checked)
+            if (showTextCheckbox.checked) {
+                const title = titleInput.value.trim();
+                const sku = skuInput.value.trim();
+                const copyright = copyrightInput.value.trim() || "www.rupsaaj.com";
+                const fullTags = getCombinedTags();
+                
+                // Combine Title and SKU for display
+                let displayTitle = title;
+                if (sku) displayTitle += (displayTitle ? ` | SKU: ${sku}` : `SKU: ${sku}`);
+                
+                if (displayTitle || copyright || fullTags) {
+                    const barHeight = Math.max(targetCanvas.height * 0.06, 40);
+                    targetCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    targetCtx.fillRect(0, targetCanvas.height - barHeight, targetCanvas.width, barHeight);
+
+                    targetCtx.fillStyle = '#ffffff';
+                    targetCtx.font = `${barHeight * 0.45}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+                    targetCtx.textBaseline = 'middle';
+                    const textY = targetCanvas.height - (barHeight / 2);
+                    const pad = targetCanvas.width * 0.02;
+
+                    if (displayTitle) { targetCtx.textAlign = 'left'; targetCtx.fillText(displayTitle, pad, textY); }
+                    if (copyright) { targetCtx.textAlign = 'center'; targetCtx.fillText(copyright, targetCanvas.width / 2, textY); }
+                    if (fullTags) { 
+                        targetCtx.textAlign = 'right'; 
+                        targetCtx.fillText(`Tags: ${fullTags}`, targetCanvas.width - pad, textY); 
+                    }
+                }
+            }
+        }
+
+        function drawPreview() {
+            if (uploadedImages.length === 0) return;
+            drawToCanvasContext(canvas, ctx, uploadedImages[selectedIndex].imgObj);
+        }
+
+        // 6. Max Quality Export & Offline Windows XP EXIF SEO Metadata
+        downloadBtn.addEventListener('click', async () => {
+            if (uploadedImages.length === 0) return;
+
+            // UI Loading state
+            downloadBtn.disabled = true;
+            downloadIcon.classList.add('hidden');
+            downloadSpinner.classList.remove('hidden');
+            downloadBtnText.textContent = 'Processing...';
+
+            const zip = new JSZip();
+            const baseTitle = titleInput.value.trim();
+            const skuValue = skuInput.value.trim();
+            const copyText = copyrightInput.value.trim() || "www.rupsaaj.com";
+            const fullTags = getCombinedTags();
+
+            // Sanitize base title and SKU for file system names
+            let safeBase = baseTitle.replace(/[\\/:*?"<>|]/g, '').trim();
+            let safeSku = skuValue.replace(/[\\/:*?"<>|]/g, '').trim();
+            
+            if (!safeBase && !safeSku) safeBase = "Image"; 
+
+            try {
+                // Process each image sequentially
+                for (let i = 0; i < uploadedImages.length; i++) {
+                    const item = uploadedImages[i];
+                    
+                    // 1. Draw composite to offscreen canvas
+                    drawToCanvasContext(offscreenCanvas, offscreenCtx, item.imgObj);
+                    
+                    // 2. Export as High-Quality JPEG
+                    const jpegDataUrl = offscreenCanvas.toDataURL('image/jpeg', 1.0);
+                    
+                    // 3. Build Windows XP EXIF Payload
+                    const zeroth = {};
+                    
+                    // Standard properties (Linux/Mac/Web)
+                    if (baseTitle) zeroth[piexif.ImageIFD.ImageDescription] = baseTitle;
+                    if (copyText) zeroth[piexif.ImageIFD.Copyright] = copyText;
+                    zeroth[piexif.ImageIFD.Software] = "Batch SEO Watermark Studio";
+
+                    // Windows Image Properties (XP tags require UTF-16LE Byte arrays)
+                    // Title: Only the title (no SKU)
+                    if (baseTitle) zeroth[EXIF_XP_TITLE] = toUTF16LE(baseTitle);
+                    
+                    // Author / Copyright
+                    if (copyText) zeroth[EXIF_XP_AUTHOR] = toUTF16LE(copyText);
+                    
+                    // Tags, Subject, and Comments: All set to the generated tags
+                    if (fullTags) {
+                        const utf16Tags = toUTF16LE(fullTags);
+                        zeroth[EXIF_XP_KEYWORDS] = utf16Tags; // Tags
+                        zeroth[EXIF_XP_SUBJECT] = utf16Tags;  // Subject
+                        zeroth[EXIF_XP_COMMENT] = utf16Tags;  // Comments
+                    }
+                    
+                    // 5-Star Rating
+                    zeroth[EXIF_RATING] = 5; 
+                    zeroth[EXIF_RATING_PERCENT] = 99;
+
+                    const exifObj = {"0th": zeroth};
+                    const exifBytes = piexif.dump(exifObj);
+
+                    // 4. Inject EXIF
+                    const finalDataUrl = piexif.insert(exifBytes, jpegDataUrl);
+
+                    // 5. Naming Convention: Title + Number + .jpg
+                    let fileName = '';
+                    if (safeBase) fileName += safeBase;
+                    fileName += ` ${i + 1}.jpg`;
+
+                    // 6. Add to ZIP
+                    const base64Data = finalDataUrl.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+                    zip.file(fileName, base64Data, {base64: true});
+                }
+
+                // Generate ZIP name: Title-SKU.zip (e.g. "red_dress-rsj_1024.zip")
+                let zipNameBase = safeBase;
+                if (safeSku) {
+                    zipNameBase = zipNameBase ? `${safeBase}-${safeSku}` : safeSku;
+                }
+                const finalZipName = `${zipNameBase.replace(/\s+/g, '_').toLowerCase()}.zip`;
+
+                // Generate ZIP and download
+                downloadBtnText.textContent = 'Zipping files...';
+                const blob = await zip.generateAsync({type: "blob"});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = finalZipName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (err) {
+                console.error("Batch processing failed:", err);
+                alert("An error occurred during batch processing. Please try fewer images.");
+            } finally {
+                // Restore UI
+                downloadBtn.disabled = false;
+                downloadIcon.classList.remove('hidden');
+                downloadSpinner.classList.add('hidden');
+                downloadBtnText.textContent = 'Process & Download ZIP';
+            }
+        });
+
+        // Start App
+        loadLogo();
+
+    </script>
+</body>
+</html>
